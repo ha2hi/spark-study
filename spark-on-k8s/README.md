@@ -64,3 +64,140 @@ EOF
 sudo sysctl --system
 ```
 
+- 방화벽 비활성(사전 준비)
+```
+sudo ufw disable
+```
+
+### 3. Install kubeadm, kubelet, kubectl(master&node)
+- ca관련 패키지 설치
+```
+sudo apt-get update
+
+sudo apt-get install -y apt-transport-https ca-certificates curl gpg
+```
+
+- public signing key 설치
+```
+curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.31/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+```
+
+- apt 저장소 추가
+```
+echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.31/deb/ /' | sudo tee /etc/apt/sources.list.d/kubernetes.list
+```
+
+- kubelet, kubeadm, kubectl 설치
+```
+sudo apt-get update
+sudo apt-get install -y kubelet kubeadm kubectl
+sudo apt-mark hold kubelet kubeadm kubectl
+```
+
+- kubelet 활성화
+```
+sudo systemctl enable --now kubelet
+```
+
+- cgroup 설정
+```
+cat <<EOF | sudo tee /etc/docker/daemon.json
+{
+  "exec-opts": ["native.cgroupdriver=systemd"],
+  "log-driver": "json-file",
+  "log-opts": {
+    "max-size": "100m"
+  },
+  "storage-driver": "overlay2"
+}
+EOF
+```
+
+- 서비스 등록 및 재수행
+```
+sudo systemctl daemon-reload
+sudo systemctl restart kubelet
+```
+
+- plugin 설정 변경
+```
+vi /etc/containerd/config.toml
+
+disabled_plugins -> enabled_plugins으로 수정
+
+sudo systemctl restart containerd
+```
+
+### 4. Create Cluster with kubeamd(master)
+- kubeadm 연결
+```
+kubeamd init
+```
+kubeadm join ~~ 문구 저장하기 <-node에서 해당 명령어 입력하여 Master와 연결
+`kubeadm join 172.13.5.178:6443 --token hzo8ak.n9p2j1cfm7o1150g \
+	--discovery-token-ca-cert-hash sha256:4d179de7f6abc80f1d1d2d674ba43d28de98e00baef6ac01572cc57ea7b5e69c`
+
+- kube 명령어 사용 설정
+```
+mkdir -p $HOME/.kube
+sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+sudo chown $(id -u):$(id -g) $HOME/.kube/config
+```
+
+- The connection to the server 172.13.5.178:6443 was refused - did you specify the right host or port? 에러 해결
+```
+containerd config default | tee /etc/containerd/config.toml
+sed -i 's/SystemdCgroup = false/SystemdCgroup = true/g' /etc/containerd/config.toml  
+service containerd restart
+service kubelet restart
+```
+
+- Pod network 애드온 설치
+network 애드온 설치하기 전에 `kubectl get nodes`를 확인해보면 control-plain의 STATUS가 "NotReady"상태이다.  
+애드온 설치 후 get nodes를 확인해보면 `Ready`상태로 변하는걸 알 수 있다.
+```
+kubectl apply -f https://github.com/weaveworks/weave/releases/download/v2.8.1/weave-daemonset-k8s.yaml
+```
+
+### 5. Worker Node join(node)
+이제 worker Node를 클러스터에 연결 할 것입니다. kubeadm init 명령어 실행 때 kubeamd join~~를 마스터를 제외한 노드에서 실행합니다.
+```
+kubeadm join 172.13.5.178:6443 --token hzo8ak.n9p2j1cfm7o1150g \
+	--discovery-token-ca-cert-hash sha256:4d179de7f6abc80f1d1d2d674ba43d28de98e00baef6ac01572cc57ea7b5e69c 
+```
+
+### 6. 확인
+master node에서 정상적으로 clustr가 구성되었는지 확인해봅니다.  
+3개의 노드의 STATUS가 Ready상태이면 정상적으로 설치된 것 입니다.  
+```
+kubectl get nodes
+```
+
+### 참고
+설치 : https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/
+설치 : https://velog.io/@fill0006/Ubuntu-22.04-%EC%BF%A0%EB%B2%84%EB%84%A4%ED%8B%B0%EC%8A%A4-%EC%84%A4%EC%B9%98%ED%95%98%EA%B8%B0
+이슈 : https://blusky10.tistory.com/473
+이슈 : https://github.com/containerd/containerd/issues/8139
+
+## helm 설치
+### apt를 사용하여 helm 설치
+- helm 설치
+```
+curl https://baltocdn.com/helm/signing.asc | gpg --dearmor | sudo tee /usr/share/keyrings/helm.gpg > /dev/null
+sudo apt-get install apt-transport-https --yes
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/helm.gpg] https://baltocdn.com/helm/stable/debian/ all main" | sudo tee /etc/apt/sources.list.d/helm-stable-debian.list
+sudo apt-get update
+sudo apt-get install helm
+```
+
+- helm 버전 확인
+```
+helm version
+```
+
+### 참고
+https://helm.sh/ko/docs/intro/install/
+
+
+## 이슈
+k8s CNI 이슈 해결해야됨.
