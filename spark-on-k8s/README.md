@@ -119,13 +119,14 @@ sudo systemctl daemon-reload
 sudo systemctl restart kubelet
 ```
 
-- plugin 설정 변경
+- containerd cgrop 설정
 ```
-vi /etc/containerd/config.toml
+rm /etc/containerd/config.toml
 
-disabled_plugins -> enabled_plugins으로 수정
-
-sudo systemctl restart containerd
+containerd config default | tee /etc/containerd/config.toml
+sed -i 's/SystemdCgroup = false/SystemdCgroup = true/g' /etc/containerd/config.toml  
+service containerd restart
+service kubelet restart
 ```
 
 ### 4. Create Cluster with kubeamd(master)
@@ -198,6 +199,130 @@ helm version
 ### 참고
 https://helm.sh/ko/docs/intro/install/
 
+## spark operator 
+GCP(Kubeflow)에서 제공하는 spark-operator를 설치하고 작업을 summit할 것 입니다.  
+링크 : https://www.kubeflow.org/docs/components/spark-operator/getting-started/
+- Prerequisites
+Helm >= 3
+Kubernetes >= 1.16
+
+- add helm repo
+```
+helm repo add spark-operator https://kubeflow.github.io/spark-operator
+
+helm repo update
+```
+
+- install chart
+webhook.enable=true를 추가하면 뭐가 달라질까요?  
+해당 기능이 활성화된다면 Spark 파드가 생성될 때 `spark-operator`가 해당 파드의 스펙을 동적으로 수정할 수 있습니다.  
+배포할 때 request, limit와 같이 요구사항을 동적으로 조정할 수 있습니다.  
+```
+helm install spark spark-operator/spark-operator \
+    --set webhook.enable=true
+```
+
+- create service account
+vi create_spark_account.yaml
+```
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: spark
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: spark-cluster-role
+rules:
+- apiGroups: [""] # "" indicates the core API group
+  resources: ["pods"]
+  verbs: ["get", "watch", "list", "create", "delete"]
+- apiGroups: [""] # "" indicates the core API group
+  resources: ["services"]
+  verbs: ["get", "create", "delete"]
+- apiGroups: [""] # "" indicates the core API group
+  resources: ["configmaps"]
+  verbs: ["get", "create", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: spark-cluster-role-binding
+subjects:
+- kind: ServiceAccount
+  name: spark
+  namespace: default
+roleRef:
+  kind: ClusterRole
+  name: spark-cluster-role
+  apiGroup: rbac.authorization.k8s.io
+```
+```
+kubectl apply -f create_spark_account.yaml
+```
+
+- spark-operator deploy 접속
+```
+kubectl exec -it deploy/spark-spark-operator -- bash
+```
+
+- spark-summit
+spark-submit시 `--master`에는 k8s://<k8s control-plane Prviate IP>를 입력하면 됩니다.  
+`namespace`와 `serviceAccountName` 부분은 각각 helm chart 배포시 설정과 service account 생성시 설정과 맞춰 입력하시면 됩니다.  
+```
+/opt/spark/bin/spark-submit \
+        --master k8s://172.13.5.182:6443 \
+        --deploy-mode cluster \
+        --driver-cores 1 \
+        --driver-memory 512m \
+        --num-executors 1 \
+        --executor-cores 1 \
+        --executor-memory 512m \
+        --class org.apache.spark.examples.SparkPi \
+        --conf spark.kubernetes.namespace=default \
+        --conf spark.kubernetes.container.image=apache/spark:3.5.1 \
+        --conf spark.kubernetes.authenticate.driver.serviceAccountName=spark \
+        --conf spark.kubernetes.authenticate.caCertFile=/var/run/secrets/kubernetes.io/serviceaccount/ca.crt  \
+        --conf spark.kubernetes.authenticate.oauthTokenFile=/var/run/secrets/kubernetes.io/serviceaccount/token  \
+        local:///opt/spark/examples/src/main/python/pi.py
+```
+
+- 정상 배포 확인
+우선 deploy에서 빠져나옵니다.  
+```
+exit
+```
+pod 확인
+```
+kubectl get pods
+```
+다음과 같이 나오면 정상적으로 실행된 것입니다.
+```
+NAME                                                        READY   STATUS      RESTARTS   AGE
+org-apache-spark-examples-sparkpi-908d85917e6de09f-driver   0/1     Completed   0          34m
+pythonpi-ca9e7e917e6df45d-exec-1                            0/1     Completed   0          34m
+spark-spark-operator-69b68b6d5b-6vwzz                       1/1     Running     0          129m
+```
+
+### 참고
+spark-operator 버전이나 여러가지 문제로 그대로 실행하면 안될 수 있습니다.  
+잘 안될 시 `kubectl describe pod <파드명>`또는 `kubectl get log <파드명>`로 로그를 확인해봐야됩니다.  
+
+
 
 ## 이슈
-k8s CNI 이슈 해결해야됨.
+[k8s cluster 구성]
+1. k8s CNI 이슈 해결해야됨.(해결 완료)
+- 이슈 내용
+  - node 연결시 weave가 계속 에러가 발생하여 RESTARTS됨.
+- 해결 방법
+  - containerd cgroup 설정을 Master Node(control-plane) 뿐만 아니라 Worker Node(Node)도 설정해줘야 된다.
+```
+rm /etc/containerd/config.toml
+
+containerd config default | tee /etc/containerd/config.toml
+sed -i 's/SystemdCgroup = false/SystemdCgroup = true/g' /etc/containerd/config.toml  
+service containerd restart
+service kubelet restart
+```
