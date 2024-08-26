@@ -1,12 +1,14 @@
 ## Kubernetes Cluster 구성(kubeamd)
 해당 Cluster 구성은 2024.08.21일기준 docs 기준 v1.31설치 과정입니다.  
 kubernetes.io의 install docs가 수정되어도 Docker설치와 메모리 스왑종료, iptables 설정, cgroup 설정은 동일하기 때문에 참고하고 나머지는 docs 가이드에 맞춰 설치하면 됩니다.  
+처음에는 t2.large로 생성하였으나 작업 제출시 CPU 리소스 부족 문제가 있어 t2.xlarge로 구성하였습니다.  
+
 [환경]  
 |서버명|OS|인스턴스타입|
 |------|---|---|
-|master|Ubuntu22.04|t2.large|
-|node1|Ubuntu22.04|t2.large|
-|node2|Ubuntu22.04|t2.large|
+|master|Ubuntu22.04|t2.xlarge|
+|node1|Ubuntu22.04|t2.xlarge|
+|node2|Ubuntu22.04|t2.xlarge|
 ### 1. Install Docker(master&node)
 - 필요 패키지 설치(사전준비)
 ```
@@ -129,6 +131,10 @@ service containerd restart
 service kubelet restart
 ```
 
+```
+sudo apt-mark hold kubelet kubeadm kubectl
+```
+
 ### 4. Create Cluster with kubeamd(master)
 - kubeadm 연결
 ```
@@ -175,140 +181,16 @@ kubectl get nodes
 ```
 
 ### 참고
-설치 : https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/
-설치 : https://velog.io/@fill0006/Ubuntu-22.04-%EC%BF%A0%EB%B2%84%EB%84%A4%ED%8B%B0%EC%8A%A4-%EC%84%A4%EC%B9%98%ED%95%98%EA%B8%B0
-이슈 : https://blusky10.tistory.com/473
-이슈 : https://github.com/containerd/containerd/issues/8139
-
-## helm 설치
-### apt를 사용하여 helm 설치
-- helm 설치
-```
-curl https://baltocdn.com/helm/signing.asc | gpg --dearmor | sudo tee /usr/share/keyrings/helm.gpg > /dev/null
-sudo apt-get install apt-transport-https --yes
-echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/helm.gpg] https://baltocdn.com/helm/stable/debian/ all main" | sudo tee /etc/apt/sources.list.d/helm-stable-debian.list
-sudo apt-get update
-sudo apt-get install helm
-```
-
-- helm 버전 확인
-```
-helm version
-```
-
-### 참고
-https://helm.sh/ko/docs/intro/install/
-
-## spark operator 
-GCP(Kubeflow)에서 제공하는 spark-operator를 설치하고 작업을 summit할 것 입니다.  
-링크 : https://www.kubeflow.org/docs/components/spark-operator/getting-started/
-- Prerequisites
-Helm >= 3
-Kubernetes >= 1.16
-
-- add helm repo
-```
-helm repo add spark-operator https://kubeflow.github.io/spark-operator
-
-helm repo update
-```
-
-- install chart
-webhook.enable=true를 추가하면 뭐가 달라질까요?  
-해당 기능이 활성화된다면 Spark 파드가 생성될 때 `spark-operator`가 해당 파드의 스펙을 동적으로 수정할 수 있습니다.  
-배포할 때 request, limit와 같이 요구사항을 동적으로 조정할 수 있습니다.  
-```
-helm install spark spark-operator/spark-operator \
-    --set webhook.enable=true
-```
-
-- create service account
-vi create_spark_account.yaml
-```
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: spark
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: spark-cluster-role
-rules:
-- apiGroups: [""] # "" indicates the core API group
-  resources: ["pods"]
-  verbs: ["get", "watch", "list", "create", "delete"]
-- apiGroups: [""] # "" indicates the core API group
-  resources: ["services"]
-  verbs: ["get", "create", "delete"]
-- apiGroups: [""] # "" indicates the core API group
-  resources: ["configmaps"]
-  verbs: ["get", "create", "delete"]
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: spark-cluster-role-binding
-subjects:
-- kind: ServiceAccount
-  name: spark
-  namespace: default
-roleRef:
-  kind: ClusterRole
-  name: spark-cluster-role
-  apiGroup: rbac.authorization.k8s.io
-```
-```
-kubectl apply -f create_spark_account.yaml
-```
-
-- spark-operator deploy 접속
-```
-kubectl exec -it deploy/spark-spark-operator -- bash
-```
-
-- spark-summit
-spark-submit시 `--master`에는 k8s://<k8s control-plane Prviate IP>를 입력하면 됩니다.  
-`namespace`와 `serviceAccountName` 부분은 각각 helm chart 배포시 설정과 service account 생성시 설정과 맞춰 입력하시면 됩니다.  
-```
-/opt/spark/bin/spark-submit \
-        --master k8s://172.13.5.182:6443 \
-        --deploy-mode cluster \
-        --driver-cores 1 \
-        --driver-memory 512m \
-        --num-executors 1 \
-        --executor-cores 1 \
-        --executor-memory 512m \
-        --class org.apache.spark.examples.SparkPi \
-        --conf spark.kubernetes.namespace=default \
-        --conf spark.kubernetes.container.image=apache/spark:3.5.1 \
-        --conf spark.kubernetes.authenticate.driver.serviceAccountName=spark \
-        --conf spark.kubernetes.authenticate.caCertFile=/var/run/secrets/kubernetes.io/serviceaccount/ca.crt  \
-        --conf spark.kubernetes.authenticate.oauthTokenFile=/var/run/secrets/kubernetes.io/serviceaccount/token  \
-        local:///opt/spark/examples/src/main/python/pi.py
-```
-
-- 정상 배포 확인
-우선 deploy에서 빠져나옵니다.  
-```
-exit
-```
-pod 확인
-```
-kubectl get pods
-```
-다음과 같이 나오면 정상적으로 실행된 것입니다.
-```
-NAME                                                        READY   STATUS      RESTARTS   AGE
-org-apache-spark-examples-sparkpi-908d85917e6de09f-driver   0/1     Completed   0          34m
-pythonpi-ca9e7e917e6df45d-exec-1                            0/1     Completed   0          34m
-spark-spark-operator-69b68b6d5b-6vwzz                       1/1     Running     0          129m
-```
-
-### 참고
+[설치]
+- https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/  
+- https://velog.io/@fill0006/Ubuntu-22.04-%EC%BF%A0%EB%B2%84%EB%84%A4%ED%8B%B0%EC%8A%A4-%EC%84%A4%EC%B9%98%ED%95%98%EA%B8%B0  
+  
+[이슈]
+- https://blusky10.tistory.com/473  
+- https://github.com/containerd/containerd/issues/8139  
+  
 spark-operator 버전이나 여러가지 문제로 그대로 실행하면 안될 수 있습니다.  
 잘 안될 시 `kubectl describe pod <파드명>`또는 `kubectl get log <파드명>`로 로그를 확인해봐야됩니다.  
-
 
 
 ## 이슈
@@ -326,3 +208,7 @@ sed -i 's/SystemdCgroup = false/SystemdCgroup = true/g' /etc/containerd/config.t
 service containerd restart
 service kubelet restart
 ```
+  
+[spark-operator]
+1. CPU 부족
+t2.large로 K8S Cluster를 구성한 이후 
