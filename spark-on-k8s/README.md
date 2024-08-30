@@ -7,7 +7,7 @@ client 혹은 master Mode로 작업을 실행해보고 싶은 마음도 있어 �
 테스트를 위한 K8S를 위한 EC2 구성 정보는 다음과 같습니다.  
 [환경]  
 |서버명|OS|인스턴스타입|스토리지구성|
-|------|---|---|
+|------|---|---|---|
 |k8s-master|Ubuntu22.04 LTS|t2.xlarge|100GB gp2|
 |k8s-node1|Ubuntu22.04 LTS|t2.xlarge|100GB gp2|
 |k8s-node2|Ubuntu22.04 LTS|t2.xlarge|100GB gp2|
@@ -38,5 +38,10 @@ spark-submit방식은 내가 직접 CLI를 통해 spark-submit하는 반면에 S
 다음과 같은 순서로 순차적으로 작업을 진행하시면 됩니다.  
 1. Kubernetes Cluster 구성(setup-k8s-cluster.md)
 2. Spark Operator 구성 및 작업 제출(Kubeflow-Spark-Operator)
-3. Event Log 설정(작성중)
+3. Event Log 설정(event-log-s3)
 4. Spark History Server 구성(작성중)
+
+### 에러 발생시 참고
+저도 우여곡절 끝에 구성했지만 다양한 이유로 구성하는 과정에서 에러가 발생할 것 입니다.  
+이 때 로그를 보면서 구글링하면 해결할 수 있을 것 입니다.  
+`kubectl logs <pod>`를 적극적으로 활용하세요.

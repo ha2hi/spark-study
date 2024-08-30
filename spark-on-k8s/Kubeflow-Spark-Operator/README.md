@@ -17,6 +17,11 @@ Spark Operator는 다음과 같은 기능을 제공합니다.
 4. Application 제출 : Submission Runner가 실제로 Cluster에 실행되도록 어플리케이션을 제출합니다.
 5. 작업 종료 : Application 작업이 끝나면 대기열에서 작업이 사라지고, 애플리케이션과 Kubernetes 리소스가 삭제됩니다.
 
+### 작업 목차
+1. Helm 설치
+2. Spark Operator 설치
+3. 실행 및 작업 확인
+  
 ### Helm 설치
 Helm을 이용하여 Spark-Operator를 설치할 것 입니다.  
 
@@ -57,41 +62,6 @@ helm install spark spark-operator/spark-operator \
 ```
 
 - 계정 설정 및 생성
-vi create_spark_account.yaml
-```
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: spark
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: spark-cluster-role
-rules:
-- apiGroups: [""] # "" indicates the core API group
-  resources: ["pods"]
-  verbs: ["get", "watch", "list", "create", "delete"]
-- apiGroups: [""] # "" indicates the core API group
-  resources: ["services"]
-  verbs: ["get", "create", "delete"]
-- apiGroups: [""] # "" indicates the core API group
-  resources: ["configmaps"]
-  verbs: ["get", "create", "delete"]
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: spark-cluster-role-binding
-subjects:
-- kind: ServiceAccount
-  name: spark
-  namespace: default
-roleRef:
-  kind: ClusterRole
-  name: spark-cluster-role
-  apiGroup: rbac.authorization.k8s.io
-```
 ```
 kubectl apply -f create_spark_account.yaml
 

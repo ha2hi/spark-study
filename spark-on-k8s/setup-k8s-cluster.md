@@ -10,7 +10,7 @@ kubernetes 설치 Documentation이 수정되어도 Docker설치와 메모리 스
 |------|---|---|
 |master|Ubuntu22.04|t2.xlarge|
 |node1|Ubuntu22.04|t2.xlarge|
-|node2|Ubuntu22.04|t2.xlarge|'
+|node2|Ubuntu22.04|t2.xlarge|
 
 [목차]
 1. Install Docker
@@ -18,6 +18,8 @@ kubernetes 설치 Documentation이 수정되어도 Docker설치와 메모리 스
 3. Install kubeadm, kubelet, kubectl
 4. Create Cluster with kubeamd
 5. Worker Node join
+6. 확인
+  
 ### 1.Install Docker(master&node)
 Kubernetes를 설치하기 앞 서 Docker를 먼저 설치해야 됩니다.  
 
