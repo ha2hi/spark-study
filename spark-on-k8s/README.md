@@ -1,7 +1,11 @@
 ### Spark on Kubernetes
 많은 기업들에서 Spark 환경을 Kubernetes에서 구성하고 있다는걸 듣게 됐습니다. 그래서 저도 Kubernetes에 한 번 Spark를 배포할 수 있는 환경을 구성해보면 좋겠다라는 생각이 들어 구성해봤습니다.  
-Spark 공부하면서 로컬 혹은 docker compose로 단일 인스턴스를 구성하여 local Mode로만 사용해봤습니다. 
-client 혹은 master Mode로 작업을 실행해보고 싶은 마음도 있어 구성을 한 번 해봤습니다.
+Spark 공부하면서 로컬 혹은 docker compose로 단일 인스턴스를 구성하여 local Mode로만 사용해봤습니다.  
+
+client 혹은 master Mode로 작업을 실행해보고 싶은 마음도 있어 구성을 한 번 해봤습니다.  
+
+"작업순서(목차)"는 계속 수정 및 추가할 예정입니다.  
+단순히 K8S에 Cluster구성에 끝이 아닌 History Server 구성 및 Jupyter에서 작업 실행과 같이 확장할 생각입니다.  
 
 ### 예상 비용
 테스트를 위한 K8S를 위한 EC2 구성 정보는 다음과 같습니다.  
@@ -34,14 +38,19 @@ spark-submit방식은 내가 직접 CLI를 통해 spark-submit하는 반면에 S
   
 작업을 수행한 로그를 S3에 저장할 것이고, 저장된 S3 로그를 볼 수 있는 Spark History Server를 구성할 것 입니다.  
 
-### 작업 순서
+### 작업 순서(목차)
 다음과 같은 순서로 순차적으로 작업을 진행하시면 됩니다.  
 1. Kubernetes Cluster 구성(setup-k8s-cluster.md)
 2. Spark Operator 구성 및 작업 제출(Kubeflow-Spark-Operator)
 3. Event Log 설정(event-log-s3)
-4. Spark History Server 구성(작성중)
+4. Spark History Server 구성(history-server)
+5. Jupyer 구성(작성중)
+  
 
-### 에러 발생시 참고
+### 에러 발생시 참고(디버깅)
 저도 우여곡절 끝에 구성했지만 다양한 이유로 구성하는 과정에서 에러가 발생할 것 입니다.  
 이 때 로그를 보면서 구글링하면 해결할 수 있을 것 입니다.  
-`kubectl logs <pod>`를 적극적으로 활용하세요.
+`kubectl logs <pod명>`, `kubectl describe pod <pod명>`를 적극적으로 활용하시면 좋습니다.
+
+### 참고하면 좋은 링크
+- https://github.com/apache/spark/blob/master/docs/running-on-kubernetes.md

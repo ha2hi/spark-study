@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: spark-history-server
+  labels:
+    app: spark-history-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: spark-history-server
+  template:
+    metadata:
+      labels:
+        app: spark-history-server
+    spec:
+      containers:
+        - name: spark-history-server
+          image: hiha2/sparkui:latest
+          command: ["/opt/spark/bin/spark-class"]
+          args: ["org.apache.spark.deploy.history.HistoryServer"]
+          ports:
+            - containerPort: 18080
+          env:
+            - name: SPARK_HISTORY_OPTS
+              value: "-Dspark.history.fs.logDirectory=s3a://<S3버킷명>/<S3폴더명>/ -Dspark.hadoop.fs.s3a.access.key=aws-secrets:AWS_ACCESS_KEY_ID -Dspark.hadoop.fs.s3a.secret.key=aws-secrets:AWS_SECRET_ACCESS_KEY"
+            - name: ADD_VALUE
+              value: "-Dspark.eventLog.enabled=true"
