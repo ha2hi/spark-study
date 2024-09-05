@@ -44,7 +44,7 @@ spark-submit방식은 내가 직접 CLI를 통해 spark-submit하는 반면에 S
 2. Spark Operator 구성 및 작업 제출(Kubeflow-Spark-Operator)
 3. Event Log 설정(event-log-s3)
 4. Spark History Server 구성(history-server)
-5. Jupyer 구성(작성중)
+5. Jupyer Notebook 구성(작성중)
   
 
 ### 에러 발생시 참고(디버깅)
