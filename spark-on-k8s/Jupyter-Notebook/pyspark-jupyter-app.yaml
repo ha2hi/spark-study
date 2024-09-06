@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jupyter
+  labels:
+    app: jupyter
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: jupyter
+  template:
+    metadata:
+      labels:
+        app: jupyter
+    spec:
+      containers:
+        - name: jupyter
+          image: hiha2/pyspark-notebook:spark3.5-python3.8
+          resources:
+            requests:
+              memory: 4096Mi
+            limits:
+              memory: 4096Mi
+          env:
+            - name: JUPYTER_PORT
+              value: "8888"
+          ports:
+            - containerPort: 8888
+      serviceAccount: spark
+      serviceAccountName: spark
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: jupyter
+spec:
+  type: NodePort
+  selector:
+    app: jupyter
+  ports:
+    - protocol: TCP
+      port: 8888
+      targetPort: 8888
+      nodePort: 30088
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: jupyter-headless
+spec:
+  clusterIP: None
+  selector:
+    app: jupyter
