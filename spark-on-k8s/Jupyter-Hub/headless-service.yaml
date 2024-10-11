@@ -1,0 +1,9 @@
+kind: Service
+apiVersion: v1
+metadata:
+  name: jupyter-headless
+spec:
+  clusterIP: None
+  selector:
+    app: jupyterhub
+    hub.jupyter.org/username: spark-5fuser

@@ -1,0 +1,53 @@
+# initContainer : directory Permission
+# config : Define jupyterhub account information
+hub:
+  initContainers:
+    - name: volume-mount-hack
+      image: busybox
+      command: ["sh", "-c", "chown -R 1000:1000 /srv/jupyterhub"]
+      volumeMounts:
+        - name: pvc
+          mountPath: /srv/jupyterhub
+  config:
+    Authenticator:
+      admin_users:
+        - python_user
+        - spark_user
+    DummyAuthenticator:
+      password: a-shared-secret-password
+    JupyterHub:
+      authenticator_class: dummy
+
+# singleuser relates to the configuration of KubeSpawner which runs in the hub
+# https://z2jh.jupyter.org/en/stable/jupyterhub/customizing/user-environment.html#using-multiple-profiles-to-let-users-select-their-environment
+singleuser:
+  serviceAccountName: spark
+  nodeSelector:
+    kubernetes.io/hostname: ip-172-13-5-171
+  profileList:
+    - display_name: "Minimal environment"
+      description: "To avoid too much bells and whistles: Python."
+      default: true
+      kubespawner_override:
+        storage_class: "python-storage"
+        storage_access_modes: ["ReadWriteOnce"]
+        storage_capacity: 10Gi
+    - display_name: "Spark environment"
+      description: "The Jupyter Stacks spark image!"
+      kubespawner_override:
+        image: hiha2/pyspark-notebook:spark3.5-python3.8
+        storage_class: "spark-storage"
+        storage_access_modes: ["ReadWriteOnce"]
+        storage_capacity: 10Gi  # 예시 용량
+  storage:
+    dynamic:
+      storageClass: local-storage
+
+# proxy-public service default type LoadBalancer 
+# LoadBalancer to NodePort setting
+proxy:
+  service:
+    type: NodePort
+    nodePorts:
+      http: 30080
+      https: 30443
