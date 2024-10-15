@@ -1,13 +1,5 @@
-# initContainer : directory Permission
 # config : Define jupyterhub account information
 hub:
-  initContainers:
-    - name: volume-mount-hack
-      image: busybox
-      command: ["sh", "-c", "chown -R 1000:1000 /srv/jupyterhub"]
-      volumeMounts:
-        - name: pvc
-          mountPath: /srv/jupyterhub
   config:
     Authenticator:
       admin_users:
@@ -38,7 +30,7 @@ singleuser:
         image: hiha2/pyspark-notebook:spark3.5-python3.8
         storage_class: "spark-storage"
         storage_access_modes: ["ReadWriteOnce"]
-        storage_capacity: 10Gi  # 예시 용량
+        storage_capacity: 10Gi
   storage:
     dynamic:
       storageClass: local-storage
