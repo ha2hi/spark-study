@@ -9,7 +9,11 @@ hub:
       password: a-shared-secret-password
     JupyterHub:
       authenticator_class: dummy
-
+  db:
+    pvc:
+      storageClassName: 'local-storage'
+    type: sqlite-memory
+      
 # singleuser relates to the configuration of KubeSpawner which runs in the hub
 # https://z2jh.jupyter.org/en/stable/jupyterhub/customizing/user-environment.html#using-multiple-profiles-to-let-users-select-their-environment
 singleuser:

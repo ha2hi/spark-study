@@ -66,4 +66,63 @@ helm upgrade --cleanup-on-fail \
   --create-namespace \
   --values config.yaml
 ```
-`hub`와 `proxy` Pod가 정상적으로 실행되고 있는지 확인합니다.
+`hub`와 `proxy` Pod가 정상적으로 실행되고 있는지 확인합니다.  
+![check hub and proxy](../../images/jupyterhub-image-1.png)
+  
+이제 hub에 접속해보겠습니다.
+웹 브라우저를 열고 `<k8s-Node-IP>:30080` 접속합니다.  
+로그인창이 나올 것 입니다.
+![로그인창](../../images/jupyterhub-image-2.png)  
+  
+Spark User로 접속해보겠습니다.  
+Username : spark_user  
+Password : a-shared-secret-password  
+그럼 다음과 같이 `config.yaml`에서 설정한대로 2개의 환경(Python, Spark)이 보일 것 입니다.  
+![환경 선택](../../images/jupyterhub-image-3.png)  
+  
+`Spark environment`를 선택하고 Start하여 접속하겠습니다.  
+다음과 같이 Spark 환경이 접속될 것 입니다.  
+![Spark환경 접속](../../images/jupyterhub-image-4.png)  
+
+### 3. Spark 사용
+Jupyter에서 Spark 사용은 지난번에 Jupyter Notebook에서 사용하는 것 과 같은 방식인 headless-service를 사용하여 다뤄볼 것 입니다.  
+- SparkSession 생성
+```
+import os
+from pyspark.sql import SparkSession
+
+spark = (
+    SparkSession.builder.appName("JupyterApp")
+    .master("k8s://https://kubernetes.default.svc.cluster.local:443")
+    .config("spark.submit.deployMode", "client")
+    .config("spark.executor.instances", "2")
+    .config("spark.executor.memory", "1G")
+    .config("spark.driver.memory", "1G")
+    .config("spark.executor.cores", "1")
+    .config("spark.kubernetes.namespace", "jupyterhub")
+    .config(
+        "spark.kubernetes.container.image", "apache/spark:3.5.0"
+    )
+    .config("spark.kubernetes.authenticate.driver.serviceAccountName", "spark")
+    .config("spark.kubernetes.driver.pod.name", os.environ["HOSTNAME"])
+    .config("spark.driver.bindAddress", "0.0.0.0")
+    .config("spark.driver.host", "jupyter-headless.jupyterhub.svc.cluster.local")
+    .getOrCreate()
+)
+```
+- Spark DataFrame example
+```
+df = spark.createDataFrame(
+    [
+        ("sue", 32),
+        ("li", 3),
+        ("bob", 75),
+        ("heo", 13),
+    ],
+    ["first_name", "age"],
+)
+df.show()
+```
+다음과 같이 정상적으로 pod가 생성되고 DataFrame이 보일 것 입니다.  
+![Spark DataFrame Example](../../images/jupyterhub-image-5.png)  
+![Create Pod Check](../../images/jupyterhub-image-6.png)  
