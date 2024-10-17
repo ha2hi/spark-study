@@ -1,22 +1,23 @@
 ### Spark on Kubernetes
-많은 기업들에서 Spark 환경을 Kubernetes에서 구성하고 있습니다.  
+많은 기업들에서 Spark 환경을 Kubernetes에서 구성하여 사용하고 있습니다.  
 그래서 저도 Kubernetes에 한 번 Spark를 배포할 수 있는 환경을 구성해보면 좋겠다라는 생각이 들어 구성해봤습니다.  
-제가 공부한 내용을 공유함으로써 독자분들에게 도움이 되었으면하는 마음으로 작성합니다.  
+제가 공부한 내용을 공유함으로써 독자분들에게 조금이라도 도움이 되었으면하는 마음으로 작성했습니다.  
   
-Spark를 개인적으로 공부할 때 Local Mode로 사용하여 기능을 익혔는데, 문득 기업들은 Spark를 어떻게 구성하면서 사용할까 궁금증이 생겼습니다.  
-로그는 어떻게 관리하지?, 모니터링은?, 언제 Client Mode와 Master Mode를 사용할까 궁금징이 생겨 구성하게 됐습니다.  
+Spark를 공부할 때 Local Mode로 사용하여 함수 기능을 익혔는데, 문득 기업들은 Spark를 어떻게 구성하면서 사용할까 궁금증이 생겼습니다.  
+`엄청 큰 데이터를 처리할 때는 환경을 어떻게 구성하지?`, `로그는 어떻게 관리하지?`, `모니터링은?`, `언제 Client Mode와 Master Mode를 구분하여 사용할까?` 궁금증이 생겨 구성해보게 됐습니다.  
   
-"작업순서(목차)"는 계속 수정 및 추가할 예정입니다.  
+"목차"는 계속 수정 및 추가할 예정입니다.  
 단순히 Kubernetes Cluster에 Spark 구성하는 것이 끝이 아니라 로그를 위한 History Server 구성, 디버깅을 위한 Jupyter 구성, 모니터링을 위한 Prometheus 구성과 같이 확장하여 작성할 생각입니다.  
 
-### 작업 순서(목차)
+### 목차
 다음과 같은 순서로 순차적으로 작업을 진행하시면 됩니다.  
 1. Kubernetes Cluster 구성(setup-k8s-cluster.md)
 2. Spark Operator 구성 및 작업 제출(Kubeflow-Spark-Operator)
 3. Event Log 설정(event-log-s3)
 4. Spark History Server 구성(history-server)
 5. Jupyer Notebook 구성(Jupyter-Notebook)
-6. Jupyter Hub 구성(작성중)  
+6. Jupyter Hub 구성(작성중)
+7. Github 사용(작성 예정)
 
 ### Spark on Kubernetes 장점
 왜 많은 기업들은 Spark를 Kubernetes에서 사용하고 있는걸까요?  

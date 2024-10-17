@@ -15,7 +15,7 @@ hub:
 singleuser:
   serviceAccountName: spark
   nodeSelector:
-    kubernetes.io/hostname: ip-172-13-5-171
+    kubernetes.io/hostname: ip-172-13-5-171 # <YOUR_NODE_IP>
   profileList:
     - display_name: "Minimal environment"
       description: "To avoid too much bells and whistles: Python."
