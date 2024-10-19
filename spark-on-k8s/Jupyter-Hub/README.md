@@ -47,6 +47,8 @@ kubectl apply -f sc.yaml
   
 - PV 생성
 ```
+kubectl apply -f hub-pv.yaml
+
 kubectl apply -f python-pv.yaml
 
 kubectl apply -f spark-pv.yaml

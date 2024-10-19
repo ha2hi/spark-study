@@ -16,7 +16,7 @@ Spark를 공부할 때 Local Mode로 사용하여 함수 기능을 익혔는데,
 3. Event Log 설정(event-log-s3)
 4. Spark History Server 구성(history-server)
 5. Jupyer Notebook 구성(Jupyter-Notebook)
-6. Jupyter Hub 구성(작성중)
+6. Jupyter Hub 구성(Jupyter-Hub)
 7. Github 사용(작성 예정)
 
 ### Spark on Kubernetes 장점
