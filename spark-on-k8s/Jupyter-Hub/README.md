@@ -128,3 +128,79 @@ df.show()
 다음과 같이 정상적으로 pod가 생성되고 DataFrame이 보일 것 입니다.  
 ![Spark DataFrame Example](../../images/jupyterhub-image-5.png)  
 ![Create Pod Check](../../images/jupyterhub-image-6.png)  
+
+### 4. Kubernetes Python Client를 사용하여 Spark Operator에 작업 배포
+JupyterHub에서 Spark Operator에 CRD로 작업을 제출하고 싶을 때 Kubernetes Python Client를 사용하여 배포할 수 있습니다.  
+URL : https://github.com/kubernetes-client/python  
+  
+- K8S Python Client 설치
+제가 JupyterHub의 Spark 환경을 배포할 때 사용한 이미지에는 PyPI에 `kubernetes` 패키지를 설치하지 않았기 때문에 Notebook에서 직접 설치하도록 하겠습니다.  
+```
+!pip install kubernetes
+```
+![pip install kubernetes](../../images/jupyterhub-image-7.png)  
+  
+- 작업 제출
+저는 JupyterHub를 K8S Cluster 내부에서 배포한 것 이므로 `config.load_incluster_config()`으로 설정 파일을 정의했지만 외부에서 실행하는 경우 `config.load_kube_config()`를 사용해야 됩니다.  
+그리고 Spark Operator는 현재 `default` Namespace에서 사용하고 있습니다.  
+![spark operator](../../images/jupyterhub-image-8.png)  
+  
+CRD를 JSON으로 정의하고 배포합니다.  
+```
+from kubernetes import client, config
+
+# 클러스터 내부 config
+config.load_incluster_config()
+
+crd_api = client.CustomObjectsApi()
+
+spark_app = {
+    "apiVersion": "sparkoperator.k8s.io/v1beta2",
+    "kind": "SparkApplication",
+    "metadata": {
+        "name": "sparkapplication-sample-client",
+        "namespace": "default"
+    },
+    "spec": {
+        "type": "Scala",
+        "mode": "cluster",
+        "image": "spark:3.5.2",
+        "imagePullPolicy": "IfNotPresent",
+        "mainClass": "org.apache.spark.examples.SparkPi",
+        "mainApplicationFile": "local:///opt/spark/examples/jars/spark-examples_2.12-3.5.2.jar",
+        "sparkVersion": "3.5.2",
+        "driver": {
+            "cores": 1,
+            "memory": "512m",
+            "serviceAccount": "spark"
+        },
+        "executor": {
+            "cores": 1,
+            "instances": 2,
+            "memory": "512m"
+        }
+    }
+}
+
+# SparkApplication 생성
+response = crd_api.create_namespaced_custom_object(
+    group="sparkoperator.k8s.io",
+    version="v1beta2",
+    namespace="default",
+    plural="sparkapplications",
+    body=spark_app
+)
+
+# 디버깅
+print("SparkApplication submitted:", response["metadata"]["name"])
+```
+![API 배포](../../images/jupyterhub-image-9.png)  
+
+```
+kubectl get pods -n default
+```
+![배포 확인](../../images/jupyterhub-image-10.png)  
+```
+kubectl logs sparkapplication-sample-client-driver
+```
+![log 확인](../../images/jupyterhub-image-11.png)  
