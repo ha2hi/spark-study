@@ -2,3 +2,7 @@
 `spark-on-k8s`에서는 EC2에서 K8S Cluster를 구성하여 Spark를 사용했더라면 해당 리포지토리에서는 AWS EKS에서 Spark를 사용하는 내용을 다룰려고합니다.  
   
 EC2가 아닌 EKS에서 Spark를 구성하면 어떤 장점이 있는지 살펴보도록 하겠습니다.
+
+## 아키텍처
+저는 EKS에서 Spark환경을 다음과 같이 구성하고자 합니다.
+![Spark-on-EKS-architecture](../images/spark-on-eks-arch.png)  
