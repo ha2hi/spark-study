@@ -1,0 +1,48 @@
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+
+metadata:
+  name: spark-on-eks
+  region: ap-northeast-2
+  version: "1.30"
+  tags: 
+    project: spark-on-eks
+    version: "1.30"
+
+vpc:
+  id: "vpc-06e8bc80bc6c171ae" # YOUR_VPC
+  # securityGroup: "sg-<YOUR_SG>"
+  subnets:
+    private:
+      ap-northeast-2a:
+        id: "subnet-0aa0e998fd478a2c7" # YOUR_SUBNET
+      ap-northeast-2b:
+        id: "subnet-032d14823e17eef93" # YOUR_SUBNET
+
+iam:
+  withOIDC: true
+  
+addons:
+- name: aws-ebs-csi-driver
+
+managedNodeGroups:
+- name: ng-job
+  instanceType: t2.xlarge
+  volumeType: gp3
+  volumeSize: 20
+  desiredCapacity: 1
+  privateNetworking: true
+  # securityGroups:
+  #     attachIDs:
+  #         - "sg-<YOUR_SG>"
+  iam:
+    attachPolicyARNs:
+    - arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy
+    - arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy
+    - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly
+    - arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy
+  ssh: 
+    publicKeyName: my-eks
+    allow: true
+  tags: 
+    nodegroup-name: ng-job
