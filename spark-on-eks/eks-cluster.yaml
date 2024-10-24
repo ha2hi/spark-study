@@ -2,13 +2,25 @@ apiVersion: eksctl.io/v1alpha5
 kind: ClusterConfig
 
 metadata:
-  name: spark-on-eks
+  name: spark-on-eks-private
   region: ap-northeast-2
   version: "1.30"
   tags: 
     project: spark-on-eks
     version: "1.30"
 
+iam:
+  withOIDC: true
+  serviceAccounts:
+  - metadata:
+      name: spark-on-eks-ebs-csi-driver-role
+      namespace: kube-system
+    attachPolicyARNs:
+    - "arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy"
+
+addons:
+- name: aws-ebs-csi-driver
+  serviceAccountRoleARN: arn:aws:iam::851725394203:role/spark-on-eks-ebs-csi-driver-role
 vpc:
   id: "vpc-06e8bc80bc6c171ae" # YOUR_VPC
   # securityGroup: "sg-<YOUR_SG>"
@@ -19,28 +31,26 @@ vpc:
       ap-northeast-2b:
         id: "subnet-032d14823e17eef93" # YOUR_SUBNET
 
-iam:
-  withOIDC: true
-  
-addons:
-- name: aws-ebs-csi-driver
-
 managedNodeGroups:
 - name: ng-job
-  instanceType: t2.xlarge
+  instanceType: t3.large
+  desiredCapacity: 1
+  minSize: 1
+  maxSize: 3
   volumeType: gp3
   volumeSize: 20
-  desiredCapacity: 1
   privateNetworking: true
-  # securityGroups:
-  #     attachIDs:
-  #         - "sg-<YOUR_SG>"
   iam:
     attachPolicyARNs:
     - arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy
     - arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy
     - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly
     - arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy
+    withAddonPolicies:
+      ebs: true
+  subnets:
+    - "subnet-0aa0e998fd478a2c7"
+    - "subnet-032d14823e17eef93"
   ssh: 
     publicKeyName: my-eks
     allow: true
