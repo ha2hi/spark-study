@@ -1,0 +1,48 @@
+# config : Define jupyterhub account information
+hub:
+  config:
+    Authenticator:
+      admin_users:
+        - python_user
+        - spark_user
+    DummyAuthenticator:
+      password: a-shared-secret-password
+    JupyterHub:
+      authenticator_class: dummy
+  db:
+    pvc:
+      storageClassName: 'jupyterhub-sc'
+    type: sqlite-memory
+
+# singleuser relates to the configuration of KubeSpawner which runs in the hub
+# https://z2jh.jupyter.org/en/stable/jupyterhub/customizing/user-environment.html#using-multiple-profiles-to-let-users-select-their-environment
+singleuser:
+  serviceAccountName: spark
+  profileList:
+    - display_name: "Minimal environment"
+      description: "To avoid too much bells and whistles: Python."
+      default: true
+      kubespawner_override:
+        image: jupyter/datascience-notebook:2343e33dec46
+        storage_class: "jupyterhub-sc"
+        storage_access_modes: ["ReadWriteOnce"]
+        storage_capacity: 10Gi
+    - display_name: "Spark environment"
+      description: "The Jupyter Stacks spark image!"
+      kubespawner_override:
+        image: jupyter/all-spark-notebook:2343e33dec46
+        storage_class: "jupyterhub-sc"
+        storage_access_modes: ["ReadWriteOnce"]
+        storage_capacity: 10Gi
+  storage:
+    dynamic:
+      storageClass: jupyterhub-sc
+
+# proxy-public service default type LoadBalancer 
+# LoadBalancer to NodePort setting
+proxy:
+  service:
+    type: NodePort
+    nodePorts:
+      http: 30080
+      https: 30443

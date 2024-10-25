@@ -59,5 +59,73 @@ chmod 700 get_helm.sh
 ./get_helm.sh
 ```
   
-## 2. EKS Cluster 생성
+## 2. EKS Cluster 생성 및 EBS CSI Driver 구성
+- EKS Cluster 생성
+대략 30분가량 걸립니다.
 ```
+kubectl apply -f eks-cluster.yaml
+```
+  
+- Role 확인
+```
+eksctl get iamserviceaccount --cluster spark-on-eks
+```
+  
+- aws-ebs-csi-driver 설치
+```
+eksctl create addon --name aws-ebs-csi-driver --cluster spark-on-eks --service-account-role-arn  <ebs-csi-controller-sa Role> --force
+```
+  
+- Addon 설치 확인
+```
+eksctl get addon --cluster spark-on-eks
+```
+  
+- csinode 확인
+```
+kubectl get csinodes
+```
+  
+## 3. Jupyterhub 구성
+- `jupyterhub` 네임스페이스 생성
+Jupyterhub의 자원들(pod, svc, pvc)은 `jupyterhub` 네임스페이스 관리할 것 입니다.   
+```
+kubectl create ns jupyterhub
+```
+  
+- StorageClass & RBAC 생성
+```
+kubectl apply -f sc-jupyterhub.yaml
+
+kubectl apply -f spark-rbac.yaml
+```
+  
+- Install Jupyterhub
+```
+helm repo add jupyterhub https://hub.jupyter.org/helm-chart/
+
+helm repo update
+
+helm upgrade --cleanup-on-fail \
+  --install jupyterhub jupyterhub/jupyterhub \
+  --namespace jupyterhub \
+  --create-namespace \
+  --values config.yaml
+```
+  
+- Jupyterhub 설치 확인
+```
+kubectl get pods -n jupyterhub
+```
+  
+- Jupyterhub 접속
+```
+# 외부 IP 확인
+kubectl get nodes -owide
+```
+![Jupyterhub 로그인창](../images/spark-on-eks-1.png)  
+`spark_user`로 로그인한 후 Spark 환경을 선택 합니다.  
+다음과 같이 정상적으로 접속되고 AWS EBS가 생성될 것 입니다.  
+![Jupyterhub 노트북 확인](../images/spark-on-eks-2.png)  
+![EBS 확인](../images/spark-on-eks-3.png)  
+
