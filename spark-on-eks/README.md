@@ -3,10 +3,13 @@
   
 EC2가 아닌 EKS에서 Spark를 구성하면 어떤 장점이 있는지 살펴보도록 하겠습니다.
 
-## 아키텍처
+## 아키텍처(초안)
 저는 EKS에서 Spark환경을 다음과 같이 구성하고자 합니다.
 ![Spark-on-EKS-architecture](../images/spark-on-eks-arch.png)  
-Karpenter, AWS CSI EBS Driver,Graceful Executor Decommissioning 적용 예정입니다.  
+적용 예정  
+1. AWS CSI EBS Driver(o)
+2. Karpenter
+3. Graceful Executor Decommissioning
   
 
 ## 1. API용 EC2 생성
