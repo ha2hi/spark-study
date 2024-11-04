@@ -35,6 +35,13 @@ unzip awscliv2.zip
 sudo ./aws/install
 
 aws --version
+```  
+  
+- docker 서ㄹ치
+```
+yum install docker -y
+
+sudo service docker start
 ```
   
 - eksctl 설치
@@ -89,6 +96,47 @@ eksctl get addon --cluster spark-on-eks
 kubectl get csinodes
 ```
   
+## 3. AWS ECR Repository 구성
+쿠버네티스에 Pod를 배포할 때 Image 정보를 확인하여 DockerHub와 같은 이미지 저장소에서 Image를 설치하여 Pod에 배포합니다.  
+- Public Registry 인증
+```
+aws ecr-public get-login-password \
+  --region us-east-1 | docker login --username AWS \
+  --password-stdin public.ecr.aws
+```
+![Registry 인증](../images/spark-on-eks-4.png)  
+  
+- Public Repository 생성
+`aws ecr-public create-repository --repository-name <레포지토리 명> --region us-east-1`
+```
+# Jupyterhub
+aws ecr-public create-repository --repository-name spark-study/jupyterhub --region us-east-1
+
+# Prometheus
+aws ecr-public create-repository --repository-name spark-study/prometheus --region us-east-1
+```
+  
+- Repository URL 확인
+생성한 `spark-repo/spark` Repository의 Uri를 확인합니다.  
+해당 Uri에 이미지를 Pull/Push할 것 입니다.  
+```
+# Jupyterhub URL
+aws ecr-public describe-repositories --region us-east-1 | jq -r '.repositories[] | select(.repositoryName == "spark-study/jupyterhub") | .repositoryUri'
+
+# Prometheus URL
+aws ecr-public describe-repositories --region us-east-1 | jq -r '.repositories[] | select(.repositoryName == "spark-study/prometheus") | .repositoryUri'
+```
+  
+- Spark 이미지 생성
+JupyterHub에서 사용할 Spark 이미지와 Prometheus에서 사용할 이미지를 생성합니다.  
+```
+# JupyterHub 이미지
+docker build -t public.ecr.aws/<레지스트리 별칭>/spark-study/jupyterhub -f /jupyterhub/Dockerfile .
+
+# Prometheus에서 이미지
+docker build -t public.ecr.aws/<레지스트리 별칭>/spark-study/prometheus -f /prometheus/Dockerfile .
+```
+
 ## 3. Jupyterhub 구성
 - `jupyterhub` 네임스페이스 생성
 Jupyterhub의 자원들(pod, svc, pvc)은 `jupyterhub` 네임스페이스 관리할 것 입니다.   
