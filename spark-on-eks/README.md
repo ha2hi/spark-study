@@ -76,6 +76,11 @@ chmod 700 get_helm.sh
 kubectl apply -f eks-cluster.yaml
 ```
   
+- kubeconfig 파일 생성
+```
+aws eks update-kubeconfig --region <REGION_CODE> --name <CLUSTER_NAME>
+```
+    
 - Role 확인
 ```
 eksctl get iamserviceaccount --cluster spark-on-eks
@@ -180,3 +185,9 @@ kubectl get nodes -owide
 ![Jupyterhub 노트북 확인](../images/spark-on-eks-2.png)  
 ![EBS 확인](../images/spark-on-eks-3.png)  
 
+## 4. Prometheus 구성
+Jupyterhub의 자원들(pod, svc, pvc)은 `monitoring` 네임스페이스 관리할 것 입니다.  
+- monitoring 네임스페이스 생성
+```
+kubectl create ns monitoring
+```
