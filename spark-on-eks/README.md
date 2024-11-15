@@ -69,6 +69,11 @@ chmod 700 get_helm.sh
 ./get_helm.sh
 ```
   
+- git 설치
+```
+dnf install git-all
+```
+  
 ## 2. EKS Cluster 생성 및 EBS CSI Driver 구성
 - EKS Cluster 생성
 대략 30분가량 걸립니다.
@@ -190,4 +195,72 @@ Jupyterhub의 자원들(pod, svc, pvc)은 `monitoring` 네임스페이스 관리
 - monitoring 네임스페이스 생성
 ```
 kubectl create ns monitoring
+```
+  
+- StorageClass 생성
+```
+kubectl apply -f sc-monitoring.yaml
+```
+  
+- Prometheus Repo 추가
+```
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+
+# repo list 확인
+helm repo list
+
+# local repository Update
+helm repo update prometheus-community
+```
+  
+- values 파일 설치
+```
+git clone https://github.com/prometheus-community/helm-charts.git
+```
+  
+- values 파일 수정
+`persistentVolume`에서 storageClass를 추가하고 `service`에서는 nodePort:30006으로 수정과 type을 NodePort로 변경합니다.   
+```
+vi /helm-charts/charts/prometheus/values.yaml
+
+# 추가 및 수정
+...
+persistentVolume:
+  ...
+  storageClass: monitoring-sc
+  ...
+...
+service:
+  ...
+  nodePort: 30006
+  type: NodePort
+  ...
+```
+![value 파일 수정](../images/spark-on-eks-monitoring1.png)  
+
+## Trivy
+Trivy는 컨테이너와 컨테이너를 제외한 artifacts(Filesystem, Git Repositories)에 대한 취약점을 분석하는 스캐너입니다.  
+OS 패키지(Alpine, RHEL, CentOS 등)와 애플리케이션 종속성(Builder, Composer, npm, yarn 등)의 취약성을 감지합니다.  
+
+- 설치(v0.57)
+참고 : https://aquasecurity.github.io/trivy/v0.57/getting-started/installation/  
+
+```
+cat << EOF | sudo tee -a /etc/yum.repos.d/trivy.repo
+[trivy]
+name=Trivy repository
+baseurl=https://aquasecurity.github.io/trivy-repo/rpm/releases/\$basearch/
+gpgcheck=1
+enabled=1
+gpgkey=https://aquasecurity.github.io/trivy-repo/rpm/public.key
+EOF
+sudo yum -y update
+sudo yum -y install trivy
+```
+
+- 이미지 스캔
+이미지가 크거나 임시 디렉토리가 충분하지 않은 경우 스캔이 실패합니다. 이런 경우 디렉토리 경로를 지정(`TMPDIR`)하여 Trivy를 충분히 사용 가능한 디렉토리로 redirect할 수 있습니다.  
+
+```
+TMPDIR=/ trivy image hiha2/prometheus
 ```
