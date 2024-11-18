@@ -37,7 +37,7 @@ sudo ./aws/install
 aws --version
 ```  
   
-- docker 서ㄹ치
+- docker 설치
 ```
 yum install docker -y
 
@@ -75,10 +75,36 @@ dnf install git-all
 ```
   
 ## 2. EKS Cluster 생성 및 EBS CSI Driver 구성
+- 환경 변수 선언
+```
+export KARPENTER_NAMESPACE="kube-system"
+export KARPENTER_VERSION="1.0.8"
+export K8S_VERSION="1.31"
+
+export AWS_PARTITION="aws"
+export AWS_DEFAULT_REGION="ap-northeast-2"
+export CLUSTER_NAME="skdisco-dataiku-eks-test"
+export AWS_ACCOUNT_ID="$(aws sts get-caller-identity --query Account --output text)"
+export TEMPOUT="$(mktemp)"
+export ARM_AMI_ID="$(aws ssm get-parameter --name /aws/service/eks/optimized-ami/${K8S_VERSION}/amazon-linux-2-arm64/recommended/image_id --query Parameter.Value --output text)"
+export AMD_AMI_ID="$(aws ssm get-parameter --name /aws/service/eks/optimized-ami/${K8S_VERSION}/amazon-linux-2/recommended/image_id --query Parameter.Value --output text)"
+export GPU_AMI_ID="$(aws ssm get-parameter --name /aws/service/eks/optimized-ami/${K8S_VERSION}/amazon-linux-2-gpu/recommended/image_id --query Parameter.Value --output text)"
+```  
+  
+- KARPENTER 역할 생성
+```
+curl -fsSL https://raw.githubusercontent.com/aws/karpenter-provider-aws/v"${KARPENTER_VERSION}"/website/content/en/preview/getting-started/getting-started-with-karpenter/cloudformation.yaml  > "${TEMPOUT}" \
+&& aws cloudformation deploy \
+  --stack-name "Karpenter-${CLUSTER_NAME}" \
+  --template-file "${TEMPOUT}" \
+  --capabilities CAPABILITY_NAMED_IAM \
+  --parameter-overrides "ClusterName=${CLUSTER_NAME}"
+```  
+  
 - EKS Cluster 생성
 대략 30분가량 걸립니다.
 ```
-kubectl apply -f eks-cluster.yaml
+envsubst < eks-cluster.yaml | eksctl create cluster -f -
 ```
   
 - kubeconfig 파일 생성
@@ -237,6 +263,15 @@ service:
   ...
 ```
 ![value 파일 수정](../images/spark-on-eks-monitoring1.png)  
+  
+- helm install
+```
+helm install prometheus prometheus-community/prometheus -f values.yaml --namespace monitoring
+```
+  
+- 웹브라우저 확인
+웹브라우저에 <Node_IP>:30006으로 접속하여 프로메테우스가 정상적으로 접속이되는지 확인 합니다.  
+![확인](../images/spark-on-eks-monitoring2.png)  
 
 ## Trivy
 Trivy는 컨테이너와 컨테이너를 제외한 artifacts(Filesystem, Git Repositories)에 대한 취약점을 분석하는 스캐너입니다.  

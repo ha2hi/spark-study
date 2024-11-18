@@ -2,12 +2,13 @@ apiVersion: eksctl.io/v1alpha5
 kind: ClusterConfig
 
 metadata:
-  name: spark-on-eks
-  region: ap-northeast-2
-  version: "1.30"
+  name: ${CLUSTER_NAME}
+  region: ${AWS_DEFAULT_REGION}
+  version: "${K8S_VERSION}"
   tags: 
     project: spark-on-eks
-    version: "1.30"
+    version: "1.31"
+    karpenter.sh/discovery: ${CLUSTER_NAME}
 
 iam:
   withOIDC: true
@@ -17,6 +18,22 @@ iam:
       namespace: kube-system
     wellKnownPolicies:
       ebsCSIController: true
+  podIdentityAssociations:
+  - namespace: "${KARPENTER_NAMESPACE}"
+    serviceAccountName: karpenter
+    roleName: ${CLUSTER_NAME}-karpenter
+    permissionPolicyARNs:
+    - arn:${AWS_PARTITION}:iam::${AWS_ACCOUNT_ID}:policy/KarpenterControllerPolicy-${CLUSTER_NAME}
+
+iamIdentityMappings:
+- arn: "arn:${AWS_PARTITION}:iam::${AWS_ACCOUNT_ID}:role/KarpenterNodeRole-${CLUSTER_NAME}"
+  username: system:node:{{EC2PrivateDNSName}}
+  groups:
+  - system:bootstrappers
+  - system:nodes
+  ## If you intend to run Windows workloads, the kube-proxy group should be specified.
+  # For more information, see https://github.com/aws/karpenter/issues/5099.
+  # - eks:kube-proxy-windows
 
 vpc:
   id: "vpc-06e8bc80bc6c171ae"
@@ -30,7 +47,7 @@ vpc:
 managedNodeGroups:
 - name: ng-job
   instanceType: t3.xlarge
-  desiredCapacity: 1
+  desiredCapacity: 2
   minSize: 1
   maxSize: 3
   volumeType: gp3
@@ -52,3 +69,6 @@ managedNodeGroups:
     allow: true
   tags: 
     nodegroup-name: ng-job
+
+addons:
+- name: eks-pod-identity-agent
