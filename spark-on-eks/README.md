@@ -273,6 +273,124 @@ helm install prometheus prometheus-community/prometheus -f values.yaml --namespa
 웹브라우저에 <Node_IP>:30006으로 접속하여 프로메테우스가 정상적으로 접속이되는지 확인 합니다.  
 ![확인](../images/spark-on-eks-monitoring2.png)  
 
+## Karpenter 설치
+EKS Cluster의 노드를 동적 확장을 위해서 Cluster AutoScaler와 Karpenter가 있습니다.  
+Cluster AutoScaler는 ASG(Auto Scale Group)으로 노드를 확장 하므로 시간이 오래걸리자만, 반면에 Karpenter는 직접 노드를 확장하여 속도가 빠릅니다.  
+그리고 Spot인스턴스도 생성할 수 있어 비용도 절감할 수 있습니다.  
+마지막으로 consolidation을 통해 pod가 다른 노드에 이동하여 노드를 삭제할 수 있다면 pod를 이동시키고 노드를 삭제하여 자원 효율성을 높일 수 있습니다.  
+  
+- 권한 생성
+```
+curl -fsSL https://raw.githubusercontent.com/aws/karpenter-provider-aws/v"${KARPENTER_VERSION}"/website/content/en/preview/getting-started/getting-started-with-karpenter/cloudformation.yaml  > "${TEMPOUT}" \
+&& aws cloudformation deploy \
+  --stack-name "Karpenter-${CLUSTER_NAME}" \
+  --template-file "${TEMPOUT}" \
+  --capabilities CAPABILITY_NAMED_IAM \
+  --parameter-overrides "ClusterName=${CLUSTER_NAME}"
+```
+  
+- 환경 변수 선언
+```
+export CLUSTER_ENDPOINT="$(aws eks describe-cluster --name "${CLUSTER_NAME}" --query "cluster.endpoint" --output text)"
+export KARPENTER_IAM_ROLE_ARN="arn:${AWS_PARTITION}:iam::${AWS_ACCOUNT_ID}:role/${CLUSTER_NAME}-karpenter"
+
+echo "${CLUSTER_ENDPOINT} ${KARPENTER_IAM_ROLE_ARN}"
+```  
+  
+- EC2 Spot fleet의 server-linked-role 확인
+```
+aws iam create-service-linked-role --aws-service-name spot.amazonaws.com || true
+# If the role has already been successfully created, you will see:
+# An error occurred (InvalidInput) when calling the CreateServiceLinkedRole operation: Service role name AWSServiceRoleForEC2Spot has been taken in this account, please try a different suffix.
+```  
+  
+- Install Karpenter
+```
+# Logout of helm registry to perform an unauthenticated pull against the public ECR
+helm registry logout public.ecr.aws
+
+helm upgrade --install karpenter oci://public.ecr.aws/karpenter/karpenter --version "${KARPENTER_VERSION}" --namespace "${KARPENTER_NAMESPACE}" --create-namespace \
+  --set "settings.clusterName=${CLUSTER_NAME}" \
+  --set "settings.interruptionQueue=${CLUSTER_NAME}" \
+  --set controller.resources.requests.cpu=1 \
+  --set controller.resources.requests.memory=1Gi \
+  --set controller.resources.limits.cpu=1 \
+  --set controller.resources.limits.memory=1Gi \
+  --set settings.featureGates.spotToSpotConsolidation=true \
+  --wait
+```
+  
+- NodeClass 생성
+```
+cat <<EOF | envsubst | kubectl apply -f - 
+apiVersion: karpenter.k8s.aws/v1
+kind: EC2NodeClass
+metadata:
+  name: default
+spec:
+  amiFamily: AL2 # Amazon Linux 2
+  role: "KarpenterNodeRole-${CLUSTER_NAME}" # replace with your cluster name
+  subnetSelectorTerms:
+  - tags:
+      karpenter.sh/discovery: "${CLUSTER_NAME}" # replace with your cluster name
+  securityGroupSelectorTerms:
+  - tags:
+      karpenter.sh/discovery: "${CLUSTER_NAME}" # replace with your cluster name
+  # EBS Option
+  blockDeviceMappings:
+    - deviceName: /dev/xvda
+      ebs:
+        volumeSize: 50Gi
+        volumeType: gp3
+        iops: 3000
+        throughput: 125
+        deleteOnTermination: true
+EOF
+```
+  
+- NodePool 생성
+```
+cat <<EOF | envsubst | kubectl apply -f -
+apiVersion: karpenter.sh/v1
+kind: NodePool
+metadata:
+  name: default
+spec:
+  template:
+    spec:
+      requirements:
+        - key: kubernetes.io/arch
+          operator: In
+          values: ["amd64"]
+        - key: kubernetes.io/os
+          operator: In
+          values: ["linux"]
+        - key: karpenter.sh/capacity-type
+          operator: In
+          values: ["spot"]
+        - key: karpenter.k8s.aws/instance-category
+          operator: In
+          values: ["c", "m", "r"]
+      nodeClassRef:
+        group: karpenter.k8s.aws
+        kind: EC2NodeClass
+        name: default
+      expireAfter: 720h # 30 * 24h = 720h
+  limits:
+    cpu: 1000
+  disruption:
+    consolidationPolicy: WhenEmptyOrUnderutilized
+    consolidateAfter: 1m
+EOF
+```  
+  
+- 설치 확인
+```
+kubectl get ec2nodeclass
+
+kubectl get nodepool
+```
+
 ## Trivy
 Trivy는 컨테이너와 컨테이너를 제외한 artifacts(Filesystem, Git Repositories)에 대한 취약점을 분석하는 스캐너입니다.  
 OS 패키지(Alpine, RHEL, CentOS 등)와 애플리케이션 종속성(Builder, Composer, npm, yarn 등)의 취약성을 감지합니다.  

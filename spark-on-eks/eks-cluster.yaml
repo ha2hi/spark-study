@@ -7,7 +7,7 @@ metadata:
   version: "${K8S_VERSION}"
   tags: 
     project: spark-on-eks
-    version: "1.31"
+    version: "${K8S_VERSION}"
     karpenter.sh/discovery: ${CLUSTER_NAME}
 
 iam:
