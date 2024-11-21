@@ -6,13 +6,8 @@ EC2가 아닌 EKS에서 Spark를 구성하면 어떤 장점이 있는지 살펴�
 ## 아키텍처(초안)
 저는 EKS에서 Spark환경을 다음과 같이 구성하고자 합니다.
 ![Spark-on-EKS-architecture](../images/spark-on-eks-arch.png)  
-적용 예정  
-1. AWS CSI EBS Driver(o)
-2. Karpenter
-3. Graceful Executor Decommissioning
   
-
-## 1. API용 EC2 생성
+## 1. API EC2 생성
 EC2를 생성하여 EKS Cluster에 API를  EC2를 먼저 생성합니다.  
 애플리케이션 및 OS 이미지 : Ubuntu Server 24.04 LTS (HVM), SSD Volume Type
 인스턴스 유형 : t2.micro
@@ -273,7 +268,7 @@ helm install prometheus prometheus-community/prometheus -f values.yaml --namespa
 웹브라우저에 <Node_IP>:30006으로 접속하여 프로메테우스가 정상적으로 접속이되는지 확인 합니다.  
 ![확인](../images/spark-on-eks-monitoring2.png)  
 
-## Karpenter 설치
+## 5. Karpenter 설치
 EKS Cluster의 노드를 동적 확장을 위해서 Cluster AutoScaler와 Karpenter가 있습니다.  
 Cluster AutoScaler는 ASG(Auto Scale Group)으로 노드를 확장 하므로 시간이 오래걸리자만, 반면에 Karpenter는 직접 노드를 확장하여 속도가 빠릅니다.  
 그리고 Spot인스턴스도 생성할 수 있어 비용도 절감할 수 있습니다.  
@@ -391,7 +386,7 @@ kubectl get ec2nodeclass
 kubectl get nodepool
 ```
 
-## Trivy
+## 6. Trivy
 Trivy는 컨테이너와 컨테이너를 제외한 artifacts(Filesystem, Git Repositories)에 대한 취약점을 분석하는 스캐너입니다.  
 OS 패키지(Alpine, RHEL, CentOS 등)와 애플리케이션 종속성(Builder, Composer, npm, yarn 등)의 취약성을 감지합니다.  
 
