@@ -69,7 +69,7 @@ chmod 700 get_helm.sh
 dnf install git-all
 ```
   
-## 2. EKS Cluster 생성 및 EBS CSI Driver 구성
+## 2. EKS Cluster 생성 및 CSI Driver 구성
 - 환경 변수 선언
 ```
 export KARPENTER_NAMESPACE="kube-system"
@@ -166,109 +166,9 @@ docker build -t public.ecr.aws/<레지스트리 별칭>/spark-study/jupyterhub -
 
 # Prometheus에서 이미지
 docker build -t public.ecr.aws/<레지스트리 별칭>/spark-study/prometheus -f /prometheus/Dockerfile .
-```
-
-## 3. Jupyterhub 구성
-- `jupyterhub` 네임스페이스 생성
-Jupyterhub의 자원들(pod, svc, pvc)은 `jupyterhub` 네임스페이스 관리할 것 입니다.   
-```
-kubectl create ns jupyterhub
-```
+```  
   
-- StorageClass & RBAC 생성
-```
-kubectl apply -f sc-jupyterhub.yaml
-
-kubectl apply -f spark-rbac.yaml
-```
-  
-- Install Jupyterhub
-```
-helm repo add jupyterhub https://hub.jupyter.org/helm-chart/
-
-helm repo update
-
-helm upgrade --cleanup-on-fail \
-  --install jupyterhub jupyterhub/jupyterhub \
-  --namespace jupyterhub \
-  --create-namespace \
-  --values config.yaml
-```
-  
-- Jupyterhub 설치 확인
-```
-kubectl get pods -n jupyterhub
-```
-  
-- Jupyterhub 접속
-```
-# 외부 IP 확인
-kubectl get nodes -owide
-```
-![Jupyterhub 로그인창](../images/spark-on-eks-1.png)  
-`spark_user`로 로그인한 후 Spark 환경을 선택 합니다.  
-다음과 같이 정상적으로 접속되고 AWS EBS가 생성될 것 입니다.  
-![Jupyterhub 노트북 확인](../images/spark-on-eks-2.png)  
-![EBS 확인](../images/spark-on-eks-3.png)  
-
-## 4. Prometheus 구성
-Jupyterhub의 자원들(pod, svc, pvc)은 `monitoring` 네임스페이스 관리할 것 입니다.  
-- monitoring 네임스페이스 생성
-```
-kubectl create ns monitoring
-```
-  
-- StorageClass 생성
-```
-kubectl apply -f sc-monitoring.yaml
-```
-  
-- Prometheus Repo 추가
-```
-helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
-
-# repo list 확인
-helm repo list
-
-# local repository Update
-helm repo update prometheus-community
-```
-  
-- values 파일 설치
-```
-git clone https://github.com/prometheus-community/helm-charts.git
-```
-  
-- values 파일 수정
-`persistentVolume`에서 storageClass를 추가하고 `service`에서는 nodePort:30006으로 수정과 type을 NodePort로 변경합니다.   
-```
-vi /helm-charts/charts/prometheus/values.yaml
-
-# 추가 및 수정
-...
-persistentVolume:
-  ...
-  storageClass: monitoring-sc
-  ...
-...
-service:
-  ...
-  nodePort: 30006
-  type: NodePort
-  ...
-```
-![value 파일 수정](../images/spark-on-eks-monitoring1.png)  
-  
-- helm install
-```
-helm install prometheus prometheus-community/prometheus -f values.yaml --namespace monitoring
-```
-  
-- 웹브라우저 확인
-웹브라우저에 <Node_IP>:30006으로 접속하여 프로메테우스가 정상적으로 접속이되는지 확인 합니다.  
-![확인](../images/spark-on-eks-monitoring2.png)  
-
-## 5. Karpenter 설치
+## 4. Karpenter 설치
 EKS Cluster의 노드를 동적 확장을 위해서 Cluster AutoScaler와 Karpenter가 있습니다.  
 Cluster AutoScaler는 ASG(Auto Scale Group)으로 노드를 확장 하므로 시간이 오래걸리자만, 반면에 Karpenter는 직접 노드를 확장하여 속도가 빠릅니다.  
 그리고 Spot인스턴스도 생성할 수 있어 비용도 절감할 수 있습니다.  
@@ -384,9 +284,109 @@ EOF
 kubectl get ec2nodeclass
 
 kubectl get nodepool
+```  
+  
+## 5. Jupyterhub 구성
+- `jupyterhub` 네임스페이스 생성
+Jupyterhub의 자원들(pod, svc, pvc)은 `jupyterhub` 네임스페이스 관리할 것 입니다.   
 ```
+kubectl create ns jupyterhub
+```
+  
+- StorageClass & RBAC 생성
+```
+kubectl apply -f sc-jupyterhub.yaml
 
-## 6. Trivy
+kubectl apply -f spark-rbac.yaml
+```
+  
+- Install Jupyterhub
+```
+helm repo add jupyterhub https://hub.jupyter.org/helm-chart/
+
+helm repo update
+
+helm upgrade --cleanup-on-fail \
+  --install jupyterhub jupyterhub/jupyterhub \
+  --namespace jupyterhub \
+  --create-namespace \
+  --values config.yaml
+```
+  
+- Jupyterhub 설치 확인
+```
+kubectl get pods -n jupyterhub
+```
+  
+- Jupyterhub 접속
+```
+# 외부 IP 확인
+kubectl get nodes -owide
+```
+![Jupyterhub 로그인창](../images/spark-on-eks-1.png)  
+`spark_user`로 로그인한 후 Spark 환경을 선택 합니다.  
+다음과 같이 정상적으로 접속되고 AWS EBS가 생성될 것 입니다.  
+![Jupyterhub 노트북 확인](../images/spark-on-eks-2.png)  
+![EBS 확인](../images/spark-on-eks-3.png)  
+
+## 6. Prometheus 구성
+Jupyterhub의 자원들(pod, svc, pvc)은 `monitoring` 네임스페이스 관리할 것 입니다.  
+- monitoring 네임스페이스 생성
+```
+kubectl create ns monitoring
+```
+  
+- StorageClass 생성
+```
+kubectl apply -f sc-monitoring.yaml
+```
+  
+- Prometheus Repo 추가
+```
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+
+# repo list 확인
+helm repo list
+
+# local repository Update
+helm repo update prometheus-community
+```
+  
+- values 파일 설치
+```
+git clone https://github.com/prometheus-community/helm-charts.git
+```
+  
+- values 파일 수정
+`persistentVolume`에서 storageClass를 추가하고 `service`에서는 nodePort:30006으로 수정과 type을 NodePort로 변경합니다.   
+```
+vi /helm-charts/charts/prometheus/values.yaml
+
+# 추가 및 수정
+...
+persistentVolume:
+  ...
+  storageClass: monitoring-sc
+  ...
+...
+service:
+  ...
+  nodePort: 30006
+  type: NodePort
+  ...
+```
+![value 파일 수정](../images/spark-on-eks-monitoring1.png)  
+  
+- helm install
+```
+helm install prometheus prometheus-community/prometheus -f values.yaml --namespace monitoring
+```
+  
+- 웹브라우저 확인
+웹브라우저에 <Node_IP>:30006으로 접속하여 프로메테우스가 정상적으로 접속이되는지 확인 합니다.  
+![확인](../images/spark-on-eks-monitoring2.png)  
+
+## 7. Trivy
 Trivy는 컨테이너와 컨테이너를 제외한 artifacts(Filesystem, Git Repositories)에 대한 취약점을 분석하는 스캐너입니다.  
 OS 패키지(Alpine, RHEL, CentOS 등)와 애플리케이션 종속성(Builder, Composer, npm, yarn 등)의 취약성을 감지합니다.  
 

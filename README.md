@@ -13,6 +13,13 @@ Spark에 대한 기본적인 이론과 K8S환경에서 Spark Cluster환경을 �
   2-6. Jupyter Hub 구성  
 3. spark-on-eks(작성중)  
 - `spark-on-k8s`에서 구성한 내용을 확장하여 AWS EKS에서 Spark 환경을 구성한 내용입니다.  
-  
+  3-1. API EC2 생성
+  3-2. EKS Cluster 생성 및 CSI Driver 구성
+  3-3. AWS ECR Repository 구성
+  3-4. Karpenter 설치
+  3-5. Jupyterhub 구성
+  3-6. Prometheus 구성
+  3-7. Trivy
+
 ### 기타 사항
 제가 작성한 내용중에 안되는 부분이 있거나 잘못된 내용이 있으시면 Issues에 올리거나 a01045542949@gmail.com에 메일로 보내주시면 감사하겠습니다.
