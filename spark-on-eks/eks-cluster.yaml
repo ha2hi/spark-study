@@ -18,6 +18,11 @@ iam:
       namespace: kube-system
     wellKnownPolicies:
       ebsCSIController: true
+  - metadata:
+      name: efs-csi-controller-sa
+      namespace: kube-system
+    wellKnownPolicies:
+      efsCSIController: true  
   podIdentityAssociations:
   - namespace: "${KARPENTER_NAMESPACE}"
     serviceAccountName: karpenter
@@ -59,8 +64,10 @@ managedNodeGroups:
     - arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy
     - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly
     - arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy
+    - arn:aws:iam::aws:policy/service-role/AmazonEFSCSIDriverPolicy
     withAddonPolicies:
       ebs: true
+      efs: true
   subnets:
   - public-one
   - public-two
