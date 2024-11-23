@@ -1,35 +1,42 @@
 ## 개요
-`spark-on-k8s`에서는 EC2에서 K8S Cluster를 구성하여 Spark를 사용했더라면 해당 리포지토리에서는 AWS EKS에서 Spark를 사용하는 내용을 다룰려고합니다.  
-  
-EC2가 아닌 EKS에서 Spark를 구성하면 어떤 장점이 있는지 살펴보도록 하겠습니다.
+`spark-on-k8s`에서는 EC2에서 K8S Cluster를 직접 구성하여 Spark를 사용했었다면 해당 리포지토리에서는 AWS EKS에서 Spark를 사용하는 내용을 다룹니다.  
 
 ## 아키텍처(초안)
 저는 EKS에서 Spark환경을 다음과 같이 구성하고자 합니다.
 ![Spark-on-EKS-architecture](../images/spark-on-eks-arch.png)  
   
 ## 1. API EC2 생성
-EC2를 생성하여 EKS Cluster에 API를  EC2를 먼저 생성합니다.  
+Control-plain에 API를 호출할 EC2를 먼저 생성합니다.  
+그리고 작업에 필요한 패키지를 설치합니다.  
+- AWS CLI
+- docker
+- eksctl
+- kubectl
+- helm
+- git  
+  
+[인스턴스 정보]  
 애플리케이션 및 OS 이미지 : Ubuntu Server 24.04 LTS (HVM), SSD Volume Type
 인스턴스 유형 : t2.micro
-VPC : EKS 클러스터 생성할 VPC
-Subnet : 본인의 Pubilc Subnet
 - EC2 접속
 ```
 ssh -i <PEM_KEY> ubuntu@<PUBLIC_IP>
-```
-  
-- root 유저로 변경
-```
-sudo su -
-```
 
+# root 유저로 변경
+sudo su -
+```  
+  
 - AWS CLI v2 설치
 ```
 curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
 unzip awscliv2.zip
 sudo ./aws/install
 
+# 설치 확인
 aws --version
+
+# AWS 연결
+aws configure
 ```  
   
 - docker 설치
@@ -114,18 +121,20 @@ eksctl get iamserviceaccount --cluster spark-on-eks
   
 - aws-ebs-csi-driver 설치
 ```
+# ebs driver 설치
 eksctl create addon --name aws-ebs-csi-driver --cluster spark-on-eks --service-account-role-arn  <ebs-csi-controller-sa Role> --force
+
+# efs driver 설치
+eksctl create addon --name aws-efs-csi-driver --cluster spark-on-eks --service-account-role-arn  <efs-csi-controller-sa Role> --force
 ```
   
 - Addon 설치 확인
 ```
 eksctl get addon --cluster spark-on-eks
-```
-  
-- csinode 확인
-```
+
+# csinode 확인
 kubectl get csinodes
-```
+```  
   
 ## 3. AWS ECR Repository 구성
 쿠버네티스에 Pod를 배포할 때 Image 정보를 확인하여 DockerHub와 같은 이미지 저장소에서 Image를 설치하여 Pod에 배포합니다.  
@@ -287,6 +296,7 @@ kubectl get nodepool
 ```  
   
 ## 5. Jupyterhub 구성
+Jupyterhub 인증 방식은 dummy 방식을 사용했는데, 프로덕션에서는 OAuthenticator(AuthO, Github, Coginito,...) 방식으로 인증 메커니즘을 사용하는 것을 권장합니다.  
 - `jupyterhub` 네임스페이스 생성
 Jupyterhub의 자원들(pod, svc, pvc)은 `jupyterhub` 네임스페이스 관리할 것 입니다.   
 ```
@@ -412,3 +422,8 @@ sudo yum -y install trivy
 ```
 TMPDIR=/ trivy image hiha2/prometheus
 ```
+
+## 잔여 작성 리스트
+1. AWS Node Termination Handler, Spark Graceful Executor Decommissioning
+2. Custom Spark Code -> initContainer
+3. Spark History Server
