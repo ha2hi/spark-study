@@ -183,6 +183,10 @@ Cluster AutoScaler는 ASG(Auto Scale Group)으로 노드를 확장 하므로 시
 그리고 Spot인스턴스도 생성할 수 있어 비용도 절감할 수 있습니다.  
 마지막으로 consolidation을 통해 pod가 다른 노드에 이동하여 노드를 삭제할 수 있다면 pod를 이동시키고 노드를 삭제하여 자원 효율성을 높일 수 있습니다.  
   
+  
+Spark에서는 Driver가 작업에 대한 상태와 Executor를 관리하기 때문에 작업이 끝나기 전에 Driver서버가 중단되면 안됩니다.  
+그렇기 때문에 Driver는 on-demand Ec2 타입에 배포하고 Executor는 spot에 배포해야 비용과 안정성을 확보할 수 있습니다.  
+  
 - 권한 생성
 ```
 curl -fsSL https://raw.githubusercontent.com/aws/karpenter-provider-aws/v"${KARPENTER_VERSION}"/website/content/en/preview/getting-started/getting-started-with-karpenter/cloudformation.yaml  > "${TEMPOUT}" \
@@ -222,70 +226,47 @@ helm upgrade --install karpenter oci://public.ecr.aws/karpenter/karpenter --vers
   --set controller.resources.limits.memory=1Gi \
   --set settings.featureGates.spotToSpotConsolidation=true \
   --wait
+```  
+  
+- Karpenter 수정
+Karpenter Controller가 Karpenter가 생성한 Node에 생성될 여지가 있으므로 nodeAffinity를 수정한다.  
 ```
+kubectl edit deploy karpenter -n kube-system
+
+#검색
+/nodeAffinity
+...
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: karpenter.sh/nodepool
+                operator: DoesNotExist
+            - matchExpressions:
+              - key: eks.amazonaws.com/nodegroup
+                operator: In
+                values:
+                - ng-job
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+...
+```  
   
 - NodeClass 생성
+`karpenter/nc.yaml`을 확인 해보면 알듯이 Subnet과 SG을 지정할 때 TAG 기반으로 지정합니다.  
+따라서 NodeClass를 생성할 Subnet과 SG에 TAG를 추가해야합니다.  
 ```
-cat <<EOF | envsubst | kubectl apply -f - 
-apiVersion: karpenter.k8s.aws/v1
-kind: EC2NodeClass
-metadata:
-  name: default
-spec:
-  amiFamily: AL2 # Amazon Linux 2
-  role: "KarpenterNodeRole-${CLUSTER_NAME}" # replace with your cluster name
-  subnetSelectorTerms:
-  - tags:
-      karpenter.sh/discovery: "${CLUSTER_NAME}" # replace with your cluster name
-  securityGroupSelectorTerms:
-  - tags:
-      karpenter.sh/discovery: "${CLUSTER_NAME}" # replace with your cluster name
-  # EBS Option
-  blockDeviceMappings:
-    - deviceName: /dev/xvda
-      ebs:
-        volumeSize: 50Gi
-        volumeType: gp3
-        iops: 3000
-        throughput: 125
-        deleteOnTermination: true
-EOF
+envsubst < karpenter/nc.yaml | kubectl apply -f -
 ```
   
 - NodePool 생성
 ```
-cat <<EOF | envsubst | kubectl apply -f -
-apiVersion: karpenter.sh/v1
-kind: NodePool
-metadata:
-  name: default
-spec:
-  template:
-    spec:
-      requirements:
-        - key: kubernetes.io/arch
-          operator: In
-          values: ["amd64"]
-        - key: kubernetes.io/os
-          operator: In
-          values: ["linux"]
-        - key: karpenter.sh/capacity-type
-          operator: In
-          values: ["spot"]
-        - key: karpenter.k8s.aws/instance-category
-          operator: In
-          values: ["c", "m", "r"]
-      nodeClassRef:
-        group: karpenter.k8s.aws
-        kind: EC2NodeClass
-        name: default
-      expireAfter: 720h # 30 * 24h = 720h
-  limits:
-    cpu: 1000
-  disruption:
-    consolidationPolicy: WhenEmptyOrUnderutilized
-    consolidateAfter: 1m
-EOF
+kubectl apply -f karpenter/driver-nodepool.yaml
+
+kubectl apply -f karpenter/executor-nodepool.yaml
 ```  
   
 - 설치 확인

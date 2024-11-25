@@ -1,7 +1,7 @@
 apiVersion: karpenter.sh/v1
 kind: NodePool
 metadata:
-  name: default
+  name: executor
 spec:
   template:
     spec:
@@ -18,6 +18,10 @@ spec:
         - key: karpenter.k8s.aws/instance-category
           operator: In
           values: ["c", "m", "r"]
+      taints:
+        - effect: NoSchedule
+          key: executor
+          value: "true"
       nodeClassRef:
         group: karpenter.k8s.aws
         kind: EC2NodeClass

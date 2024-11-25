@@ -8,8 +8,8 @@ spec:
   subnetSelectorTerms:
   - tags:
       karpenter.sh/discovery: "${CLUSTER_NAME}" # replace with your cluster name
-  - id: subnet-04b713938f441aa70
-  - id: subnet-04b713938f441aa70
+  # - id: subnet-04b713938f441aa70 <YOUR_SUBNET>
+  # - id: subnet-04b713938f441aa70 <YOUR_SUBNET>
   securityGroupSelectorTerms:
   - tags:
       karpenter.sh/discovery: "${CLUSTER_NAME}" # replace with your cluster name
