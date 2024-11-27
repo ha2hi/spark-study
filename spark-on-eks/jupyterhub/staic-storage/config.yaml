@@ -1,0 +1,100 @@
+# config : Define jupyterhub account information
+hub:
+  config:
+    Authenticator:
+      admin_users:
+        - python_user
+        - spark_user
+    DummyAuthenticator:
+      password: a-shared-secret-password
+    JupyterHub:
+      authenticator_class: dummy
+  db:
+    pvc:
+      storage: 30Gi
+      storageClassName: 'jupyterhub-sc'
+    type: sqlite-memory
+
+# singleuser relates to the configuration of KubeSpawner which runs in the hub
+# https://z2jh.jupyter.org/en/stable/jupyterhub/customizing/user-environment.html#using-multiple-profiles-to-let-users-select-their-environment
+singleuser:
+  serviceAccountName: spark
+  startTimeout: 1200 # 20 mins to spin up a notebook server for GPU including the image pull
+  profileList:
+    - display_name: ha2hi (CPU)
+      description: "ha2hi Notebooks | Karpenter Autoscaling"
+      profile_options:
+        image:
+          display_name: "Image"
+          choices:
+            pyspark350:
+              display_name: "PySpark 3.5.0 + Python 3.11"
+              default: true
+              kubespawner_override:
+                image: jupyter/pyspark-notebook:spark-3.5.0
+            pyspark341:
+              display_name: "PySpark 3.4.1 + Python 3.11"
+              kubespawner_override:
+                image: jupyter/pyspark-notebook:spark-3.4.1
+      kubespawner_override:
+        node_selector:
+          karpenter.sh/capacity-type: "spot"
+        cpu_guarantee: 1
+        mem_guarantee: 2G
+        cpu_limit: 1
+        mem_limit: 2G
+      cmd: null
+
+    - display_name: "Minimal environment"
+      description: "To avoid too much bells and whistles: Python."
+      default: true
+      kubespawner_override:
+        image: jupyter/datascience-notebook:2343e33dec46
+        storage_class: "jupyterhub-sc"
+        storage_access_modes: ["ReadWriteOnce"]
+        storage_capacity: 10Gi
+    - display_name: "Spark environment"
+      description: "The Jupyter Stacks spark image!"
+      kubespawner_override:
+        image: jupyter/all-spark-notebook:2343e33dec46
+        storage_class: "jupyterhub-sc"
+        storage_access_modes: ["ReadWriteOnce"]
+        storage_capacity: 10Gi
+  storage:
+    type: "static"
+    static:
+      pvcName: "efs-persist"
+      subPath: "home/{username}"
+    extraVolumes:
+    - name: jupyterhub-shared
+      persistentVolumeClaim:
+        claimName: efs-persist-shared
+    extraVolumeMounts:
+    - name: jupyterhub-shared
+      mountPath: /home/shared
+      readOnly: false
+  allowPrivilegeEscalation: true
+  extraPodConfig: # This is needed for Jovyan user running in every single pod, access the Service Account
+    securityContext:
+        fsGroup: 100
+  extraEnv: # Sudo needed to configure the proper permissions to start the notebook instance
+    GRANT_SUDO: "yes"
+    NOTEBOOK_ARGS: "--allow-root"
+    CHOWN_HOME: "yes"
+    CHOWN_HOME_OPTS: "-R"
+    CHOWN_EXTRA: "/home/shared"
+  uid: 0
+  fsGid: 0
+  
+# proxy-public service default type LoadBalancer 
+# LoadBalancer to NodePort setting
+proxy:
+  service:
+    type: NodePort
+    nodePorts:
+      http: 30080
+      https: 30443
+
+prePuller:
+  hook:
+    enabled: false
